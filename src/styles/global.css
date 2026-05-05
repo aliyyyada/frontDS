@@ -1,0 +1,59 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,600;0,700;1,400&family=Rubik:ital,wght@1,900&display=swap');
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --blue: #2D3CC0;
+  --blue-dark: #1e2a9e;
+  --blue-light: #4a5cd6;
+  --orange: #F5A623;
+  --orange-dark: #e09415;
+  --gray-bg: #F0F1F5;
+  --gray-card: #FFFFFF;
+  --gray-input: #F5F5F7;
+  --gray-border: #E0E0E0;
+  --gray-text: #8A8A9A;
+  --dark-text: #1A1A2E;
+  --white: #FFFFFF;
+  --error: #E53E3E;
+  --success: #38A169;
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-md: 0 4px 20px rgba(0,0,0,0.12);
+  --shadow-lg: 0 8px 40px rgba(0,0,0,0.18);
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --font-main: 'Montserrat', sans-serif;
+}
+
+html, body, #root {
+  height: 100%;
+  font-family: var(--font-main);
+  color: var(--dark-text);
+  background: var(--gray-bg);
+}
+
+input, textarea, button, select {
+  font-family: var(--font-main);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--gray-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--gray-text); }
