@@ -660,7 +660,7 @@ function ScheduleTab({ onEditModeChange }) {
                           : 'Свободно'}
                   </div>
                   {slot.status === 'theory' && (
-                    <div className={s.slotLoc}>📍 Энтузиастов 12, офис 302</div>
+                    <div className={s.slotLoc}>📍 {process.env.REACT_APP_SCHOOL_ADDRESS}</div>
                   )}
                 </div>
               );

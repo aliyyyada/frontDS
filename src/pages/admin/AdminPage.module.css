@@ -646,6 +646,8 @@
 }
 .fieldInput:focus { border-color: var(--blue); background: var(--white); }
 .fieldInput:disabled { color: var(--dark-text); cursor: default; }
+.fieldInputError { border-color: #ef4444 !important; }
+.fieldErrText { font-size: 11px; color: #ef4444; margin-top: 3px; display: block; }
 .fieldSelect {
   padding: 9px 12px;
   border: 1px solid var(--gray-border);

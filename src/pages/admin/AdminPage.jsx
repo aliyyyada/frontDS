@@ -1910,6 +1910,8 @@ function TariffsSection() {
   const [loading, setLoading]   = useState(false);
   const [showAdd, setShowAdd]   = useState(false);
   const [addForm, setAddForm]   = useState({ name: '', practice_hours: '', theory_hours: '', total_price: '', theory_price: '' });
+  const [addErrors, setAddErrors] = useState({});
+  const [editErrors, setEditErrors] = useState({});
   const [deleteTariffId, setDeleteTariffId] = useState(null);
   const [deletingTariff, setDeletingTariff] = useState(false);
 
@@ -1929,7 +1931,24 @@ function TariffsSection() {
     if (tariff) setForm({ ...tariff });
   }, [selected]);
 
+  function validateTariff(f) {
+    const e = {};
+    if (!f.name?.trim()) e.name = 'Введите название';
+    const ph = Number(f.practice_hours);
+    if (!f.practice_hours || isNaN(ph) || ph <= 0 || !Number.isInteger(ph)) e.practice_hours = 'Целое число > 0';
+    const th = Number(f.theory_hours);
+    if (!f.theory_hours || isNaN(th) || th <= 0 || !Number.isInteger(th)) e.theory_hours = 'Целое число > 0';
+    const tp = Number(String(f.total_price).replace(/\s/g, '').replace(',', '.'));
+    if (!f.total_price || isNaN(tp) || tp <= 0) e.total_price = 'Введите сумму';
+    const thp = Number(String(f.theory_price).replace(/\s/g, '').replace(',', '.'));
+    if (!f.theory_price || isNaN(thp) || thp <= 0) e.theory_price = 'Введите сумму';
+    return e;
+  }
+
   function handleSave() {
+    const e = validateTariff(form);
+    if (Object.keys(e).length) { setEditErrors(e); return; }
+    setEditErrors({});
     setSaving(true);
     adminAPI.updateTariff(selected, { name: form.name, practice_hours: Number(form.practice_hours), theory_hours: Number(form.theory_hours), total_price: form.total_price, theory_price: form.theory_price })
       .then(() => { loadTariffs(); setEditing(false); })
@@ -1946,6 +1965,9 @@ function TariffsSection() {
   }
 
   function handleAddTariff() {
+    const e = validateTariff(addForm);
+    if (Object.keys(e).length) { setAddErrors(e); return; }
+    setAddErrors({});
     setSaving(true);
     adminAPI.createTariff({ name: addForm.name, practice_hours: Number(addForm.practice_hours), theory_hours: Number(addForm.theory_hours), total_price: addForm.total_price, theory_price: addForm.theory_price })
       .then(() => { loadTariffs(); setShowAdd(false); setAddForm({ name: '', practice_hours: '', theory_hours: '', total_price: '', theory_price: '' }); })
@@ -1986,19 +2008,28 @@ function TariffsSection() {
             </div>
             <div className={styles.detailForm}>
               <FieldRow label="Название тарифа" value={form.name || ''} disabled={!editing}
-                onChange={v => setForm(f => ({ ...f, name: v }))} />
+                onChange={v => { setForm(f => ({ ...f, name: v })); setEditErrors(e => ({ ...e, name: '' })); }}
+                error={editing ? editErrors.name : undefined} />
               <div className={styles.twoCol}>
                 <FieldRow label="Часов теории" value={String(form.theory_hours ?? '')} disabled={!editing}
-                  onChange={v => setForm(f => ({ ...f, theory_hours: v }))} />
+                  type={editing ? 'number' : 'text'} inputMode="numeric" min="1" step="1"
+                  onChange={v => { setForm(f => ({ ...f, theory_hours: v })); setEditErrors(e => ({ ...e, theory_hours: '' })); }}
+                  error={editing ? editErrors.theory_hours : undefined} />
                 <FieldRow label="Часов практики" value={String(form.practice_hours ?? '')} disabled={!editing}
-                  onChange={v => setForm(f => ({ ...f, practice_hours: v }))} />
+                  type={editing ? 'number' : 'text'} inputMode="numeric" min="1" step="1"
+                  onChange={v => { setForm(f => ({ ...f, practice_hours: v })); setEditErrors(e => ({ ...e, practice_hours: '' })); }}
+                  error={editing ? editErrors.practice_hours : undefined} />
               </div>
               <div className={styles.twoCol}>
                 <div className={styles.priceBox}>
                   <span className={styles.priceLbl}>Общая стоимость</span>
                   {editing ? (
-                    <input className={styles.fieldInput} value={form.total_price || ''}
-                      onChange={e => setForm(f => ({ ...f, total_price: e.target.value }))} />
+                    <>
+                      <input className={`${styles.fieldInput} ${editErrors.total_price ? styles.fieldInputError : ''}`}
+                        value={form.total_price || ''} inputMode="decimal" placeholder="0"
+                        onChange={e => { setForm(f => ({ ...f, total_price: e.target.value })); setEditErrors(er => ({ ...er, total_price: '' })); }} />
+                      {editErrors.total_price && <span className={styles.fieldErrText}>{editErrors.total_price}</span>}
+                    </>
                   ) : (
                     <span className={styles.priceVal}>{Number(tariff.total_price).toLocaleString('ru')} руб</span>
                   )}
@@ -2006,8 +2037,12 @@ function TariffsSection() {
                 <div className={styles.priceBox}>
                   <span className={styles.priceLbl}>Теория</span>
                   {editing ? (
-                    <input className={styles.fieldInput} value={form.theory_price || ''}
-                      onChange={e => setForm(f => ({ ...f, theory_price: e.target.value }))} />
+                    <>
+                      <input className={`${styles.fieldInput} ${editErrors.theory_price ? styles.fieldInputError : ''}`}
+                        value={form.theory_price || ''} inputMode="decimal" placeholder="0"
+                        onChange={e => { setForm(f => ({ ...f, theory_price: e.target.value })); setEditErrors(er => ({ ...er, theory_price: '' })); }} />
+                      {editErrors.theory_price && <span className={styles.fieldErrText}>{editErrors.theory_price}</span>}
+                    </>
                   ) : (
                     <span className={styles.priceVal}>{Number(tariff.theory_price).toLocaleString('ru')} руб</span>
                   )}
@@ -2019,16 +2054,30 @@ function TariffsSection() {
       </div>
 
       {showAdd && (
-        <Modal onClose={() => setShowAdd(false)}>
+        <Modal onClose={() => { setShowAdd(false); setAddErrors({}); }}>
           <h3 className={styles.modalTitle}>Новый тариф</h3>
-          <FieldRow label="Название тарифа" value={addForm.name} onChange={v => setAddForm(f => ({ ...f, name: v }))} />
+          <FieldRow label="Название тарифа" value={addForm.name}
+            onChange={v => { setAddForm(f => ({ ...f, name: v })); setAddErrors(e => ({ ...e, name: '' })); }}
+            error={addErrors.name} />
           <div className={styles.twoCol}>
-            <FieldRow label="Часов теории" value={addForm.theory_hours} onChange={v => setAddForm(f => ({ ...f, theory_hours: v }))} />
-            <FieldRow label="Часов практики" value={addForm.practice_hours} onChange={v => setAddForm(f => ({ ...f, practice_hours: v }))} />
+            <FieldRow label="Часов теории" value={addForm.theory_hours}
+              type="number" inputMode="numeric" min="1" step="1" placeholder="0"
+              onChange={v => { setAddForm(f => ({ ...f, theory_hours: v })); setAddErrors(e => ({ ...e, theory_hours: '' })); }}
+              error={addErrors.theory_hours} />
+            <FieldRow label="Часов практики" value={addForm.practice_hours}
+              type="number" inputMode="numeric" min="1" step="1" placeholder="0"
+              onChange={v => { setAddForm(f => ({ ...f, practice_hours: v })); setAddErrors(e => ({ ...e, practice_hours: '' })); }}
+              error={addErrors.practice_hours} />
           </div>
           <div className={styles.twoCol}>
-            <FieldRow label="Общая стоимость" value={addForm.total_price} onChange={v => setAddForm(f => ({ ...f, total_price: v }))} />
-            <FieldRow label="Стоимость теории" value={addForm.theory_price} onChange={v => setAddForm(f => ({ ...f, theory_price: v }))} />
+            <FieldRow label="Общая стоимость" value={addForm.total_price}
+              inputMode="decimal" placeholder="0"
+              onChange={v => { setAddForm(f => ({ ...f, total_price: v })); setAddErrors(e => ({ ...e, total_price: '' })); }}
+              error={addErrors.total_price} />
+            <FieldRow label="Стоимость теории" value={addForm.theory_price}
+              inputMode="decimal" placeholder="0"
+              onChange={v => { setAddForm(f => ({ ...f, theory_price: v })); setAddErrors(e => ({ ...e, theory_price: '' })); }}
+              error={addErrors.theory_price} />
           </div>
           <button className={styles.primaryBtn} onClick={handleAddTariff} disabled={saving}>
             {saving ? 'Добавление...' : 'Добавить'}
@@ -2359,18 +2408,23 @@ function InvoicesTab() {
 // ══════════════════════════════════════════════════════════════════════════════
 // SHARED COMPONENTS
 // ══════════════════════════════════════════════════════════════════════════════
-function FieldRow({ label, value, onChange, disabled = false, type = 'text', dimmed = false }) {
+function FieldRow({ label, value, onChange, disabled = false, type = 'text', dimmed = false, inputMode, placeholder, min, step, error }) {
   return (
     <div className={styles.fieldGroup}>
       <label className={`${styles.fieldLabel} ${dimmed ? styles.fieldLabelDisabled : ''}`}>{label}</label>
       <input
-        className={`${styles.fieldInput} ${dimmed ? styles.fieldInputDimmed : ''}`}
+        className={`${styles.fieldInput} ${dimmed ? styles.fieldInputDimmed : ''} ${error ? styles.fieldInputError : ''}`}
         type={type}
         value={value}
         onChange={onChange ? e => onChange(e.target.value) : undefined}
         disabled={disabled}
         readOnly={!onChange}
+        inputMode={inputMode}
+        placeholder={placeholder}
+        min={min}
+        step={step}
       />
+      {error && <span className={styles.fieldErrText}>{error}</span>}
     </div>
   );
 }

@@ -28,6 +28,13 @@ const EyeOff = () => (
   </svg>
 );
 
+function formatBirthdateDisplay(raw) {
+  const digits = raw.replace(/\D/g, '').slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return digits.slice(0, 2) + '.' + digits.slice(2);
+  return digits.slice(0, 2) + '.' + digits.slice(2, 4) + '.' + digits.slice(4);
+}
+
 export function Input({
   label,
   type = 'text',
@@ -44,6 +51,7 @@ export function Input({
   const inputRef = useRef(null);
   const isPassword = type === 'password';
   const isPhone = type === 'phone';
+  const isBirthdate = type === 'birthdate';
 
   const handleChange = (e) => {
     if (isPhone) {
@@ -66,6 +74,9 @@ export function Input({
         const pos = cursorPosForDigitCount(formatted, digitsBeforeCursor);
         inputRef.current.setSelectionRange(pos, pos);
       });
+    } else if (isBirthdate) {
+      const formatted = formatBirthdateDisplay(e.target.value);
+      onChange(formatted);
     } else if (isPassword) {
       // Allow only ASCII printable characters (no Cyrillic / non-Latin scripts)
       const filtered = e.target.value.replace(/[^\x20-\x7E]/g, '');
@@ -134,15 +145,15 @@ export function Input({
         <input
           ref={inputRef}
           className={`${styles.input} ${isPassword ? styles.inputWithEye : ''} ${error ? styles.inputError : ''}`}
-          type={isPassword ? (showPass ? 'text' : 'password') : isPhone ? 'tel' : type}
+          type={isPassword ? (showPass ? 'text' : 'password') : isPhone ? 'tel' : isBirthdate ? 'text' : type}
           value={value}
           onChange={handleChange}
           onKeyDown={isPhone ? handlePhoneKeyDown : undefined}
-          placeholder={placeholder}
+          placeholder={isBirthdate ? 'ДД.ММ.ГГГГ' : placeholder}
           disabled={disabled}
-          maxLength={maxLength || (isPhone ? 18 : undefined)}
+          maxLength={isBirthdate ? 10 : maxLength || (isPhone ? 18 : undefined)}
           autoComplete={autoComplete}
-          inputMode={isPhone ? 'numeric' : inputMode}
+          inputMode={isPhone ? 'numeric' : isBirthdate ? 'numeric' : inputMode}
         />
         {isPassword && (
           <button

@@ -1,9 +1,6 @@
 // src/api/client.js
 import axios from 'axios';
-//const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8000/api/admin';
-//const API_BASE = process.env.REACT_APP_API_URL || 'http://192.168.31.119:8000/api/admin';
-const API_BASE = process.env.REACT_APP_API_URL || 'http://100.123.80.16:8000/api/admin';
-//const API_BASE = process.env.REACT_APP_API_URL || 'http://172.20.10.4:8000/api/admin';
+const API_BASE = process.env.REACT_APP_API_URL || 'http://172.20.10.4/api/admin';
 
 // Extracts "http://host:port" to build media file URLs
 const MEDIA_ORIGIN = API_BASE.split('/api')[0];
@@ -11,7 +8,10 @@ const MEDIA_ORIGIN = API_BASE.split('/api')[0];
 export function getMediaUrl(path) {
   if (!path) return null;
   if (path.startsWith('http://') || path.startsWith('https://')) return path;
-  return `${MEDIA_ORIGIN}/media/${path.replace(/^\//, '')}`;
+  const stripped = path.replace(/^\/+/, '');
+  // avoid doubling /media/ if the path already starts with it
+  if (stripped.startsWith('media/')) return `${MEDIA_ORIGIN}/${stripped}`;
+  return `${MEDIA_ORIGIN}/media/${stripped}`;
 }
 
 const client = axios.create({
@@ -32,10 +32,11 @@ client.interceptors.response.use(
   (res) => res,
   async (error) => {
     const original = error.config;
-    if (error.response?.status === 401 && !original._retry) {
+    const refresh = localStorage.getItem('refresh_token');
+    const isLoginEndpoint = original.url?.includes('/auth/login/');
+    if (error.response?.status === 401 && !original._retry && !isLoginEndpoint && refresh) {
       original._retry = true;
       try {
-        const refresh = localStorage.getItem('refresh_token');
         const { data } = await axios.post(`${API_BASE}/auth/token/refresh/`, { refresh });
         localStorage.setItem('access_token', data.access);
         if (data.refresh) localStorage.setItem('refresh_token', data.refresh);

@@ -7,6 +7,11 @@ import { LegalDocModal } from '../../components/common/LegalDocModal';
 import { isPhoneComplete } from '../../utils/phone';
 import styles from './RegisterPage.module.css';
 
+function filterRuText(val) {
+  const cleaned = val.replace(/[^а-яёА-ЯЁ\s\-']/g, '');
+  return cleaned.replace(/(^|[\s\-'])([а-яёА-ЯЁ])/g, (_, sep, ch) => sep + ch.toUpperCase());
+}
+
 export default function RegisterPage() {
   const navigate = useNavigate();
   const [form, setForm] = useState({
@@ -28,7 +33,21 @@ export default function RegisterPage() {
     if (!form.last_name.trim()) e.last_name = 'Введите фамилию';
     if (!form.first_name.trim()) e.first_name = 'Введите имя';
     if (!isPhoneComplete(form.phone)) e.phone = 'Введите корректный номер';
-    if (!form.birth_date) e.birth_date = 'Введите дату рождения';
+    if (!form.birth_date || form.birth_date.length < 10) {
+      e.birth_date = 'Введите дату рождения';
+    } else {
+      const parts = form.birth_date.split('.');
+      const [d, m, y] = parts.map(Number);
+      const date = new Date(y, m - 1, d);
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      if (
+        date.getDate() !== d || date.getMonth() !== m - 1 || date.getFullYear() !== y
+      ) {
+        e.birth_date = 'Неверная дата';
+      } else if (date >= today) {
+        e.birth_date = 'Дата рождения должна быть в прошлом';
+      }
+    }
     if (form.password.length < 8) e.password = 'Минимум 8 символов';
     if (form.password !== form.confirmPassword) e.confirmPassword = 'Пароли не совпадают';
     if (!form.consent1 || !form.consent2) e.consent = 'Необходимо принять оба согласия';
@@ -41,12 +60,13 @@ export default function RegisterPage() {
     setLoading(true);
     setApiError('');
     try {
+      const [dd, mm, yyyy] = form.birth_date.split('.');
       await authAPI.registerInstructor({
         first_name: form.first_name.trim(),
         last_name: form.last_name.trim(),
         patronymic: form.patronymic.trim(),
         phone_number: form.phoneRaw,
-        birth_date: form.birth_date,
+        birth_date: `${yyyy}-${mm}-${dd}`,
         password: form.password,
         consent: true,
       });
@@ -67,16 +87,19 @@ export default function RegisterPage() {
         <h1 className={styles.title}>Регистрация<br />инструктора</h1>
 
         <div className={styles.form}>
-          <Input label="Фамилия" value={form.last_name} onChange={set('last_name')}
+          <Input label="Фамилия" value={form.last_name}
+            onChange={v => setForm(f => ({ ...f, last_name: filterRuText(v) }))}
             placeholder="Иванов" error={errors.last_name} maxLength={100} />
-          <Input label="Имя" value={form.first_name} onChange={set('first_name')}
+          <Input label="Имя" value={form.first_name}
+            onChange={v => setForm(f => ({ ...f, first_name: filterRuText(v) }))}
             placeholder="Иван" error={errors.first_name} maxLength={100} />
-          <Input label="Отчество" value={form.patronymic} onChange={set('patronymic')}
+          <Input label="Отчество" value={form.patronymic}
+            onChange={v => setForm(f => ({ ...f, patronymic: filterRuText(v) }))}
             placeholder="Иванович" maxLength={100} />
           <Input label="Номер телефона" type="phone" value={form.phone}
             onChange={(fmt, raw) => setForm((f) => ({ ...f, phone: fmt, phoneRaw: raw }))}
             placeholder="+7 (999) 000-00-00" error={errors.phone} />
-          <Input label="Дата рождения" type="date" value={form.birth_date} onChange={set('birth_date')}
+          <Input label="Дата рождения" type="birthdate" value={form.birth_date} onChange={set('birth_date')}
             error={errors.birth_date} />
           <Input label="Пароль" type="password" value={form.password} onChange={set('password')}
             placeholder="Не менее 8 символов" error={errors.password} autoComplete="new-password" />
