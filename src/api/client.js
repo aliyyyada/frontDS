@@ -1,6 +1,6 @@
 // src/api/client.js
 import axios from 'axios';
-const API_BASE = process.env.REACT_APP_API_URL || 'http://172.20.10.4/api/admin';
+const API_BASE = process.env.REACT_APP_API_URL || 'http://192.168.31.119/api/admin';
 
 // Extracts "http://host:port" to build media file URLs
 const MEDIA_ORIGIN = API_BASE.split('/api')[0];
@@ -28,6 +28,10 @@ client.interceptors.request.use((config) => {
   return config;
 });
 
+// Один активный запрос на обновление токена — предотвращает гонку при
+// параллельных 401 (повторный refresh с уже ротированным токеном = выход).
+let refreshPromise = null;
+
 client.interceptors.response.use(
   (res) => res,
   async (error) => {
@@ -37,10 +41,18 @@ client.interceptors.response.use(
     if (error.response?.status === 401 && !original._retry && !isLoginEndpoint && refresh) {
       original._retry = true;
       try {
-        const { data } = await axios.post(`${API_BASE}/auth/token/refresh/`, { refresh });
-        localStorage.setItem('access_token', data.access);
-        if (data.refresh) localStorage.setItem('refresh_token', data.refresh);
-        original.headers.Authorization = `Bearer ${data.access}`;
+        if (!refreshPromise) {
+          refreshPromise = axios
+            .post(`${API_BASE}/auth/token/refresh/`, { refresh })
+            .then(({ data }) => {
+              localStorage.setItem('access_token', data.access);
+              if (data.refresh) localStorage.setItem('refresh_token', data.refresh);
+              return data.access;
+            })
+            .finally(() => { refreshPromise = null; });
+        }
+        const newToken = await refreshPromise;
+        original.headers.Authorization = `Bearer ${newToken}`;
         return client(original);
       } catch (refreshErr) {
         // Только разлогиниваем при явном ответе сервера (токен недействителен).
@@ -108,6 +120,9 @@ export const instructorAPI = {
 
   // Уведомить студентов об обновлении расписания (notify=false — публикует без уведомлений)
   notifyStudents: (notify = true) => client.post('/instructor/slots/notify/', { notify }),
+
+  // Скопировать слоты с предыдущей недели на указанную (week — ISO-дата понедельника)
+  copyFromPrevWeek: (week) => client.post('/instructor/slots/copy-from-prev-week/', { week }),
 
 };
 // ── Admin ─────────────────────────────────────────────────────────────────────

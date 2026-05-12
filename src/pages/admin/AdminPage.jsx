@@ -1550,6 +1550,8 @@ function GroupsSection() {
   const [instructors, setInstructors] = useState([]);
   const [scheduleForm, setScheduleForm] = useState({ weekday: 1, start_time: '09:00', end_time: '10:30' });
   const [addingSchedule, setAddingSchedule] = useState(false);
+  const [saveError, setSaveError]           = useState('');
+  const [scheduleError, setScheduleError]   = useState('');
   const [studentSearch, setStudentSearch] = useState('');
   const [studentResults, setStudentResults] = useState([]);
   const [searchingStudents, setSearchingStudents] = useState(false);
@@ -1578,6 +1580,15 @@ function GroupsSection() {
   }, [selected]);
 
   function handleSave() {
+    if (!form.name || !form.start_date) {
+      setSaveError('Заполните обязательные поля: название, дата начала');
+      return;
+    }
+    if (form.end_date && form.start_date >= form.end_date) {
+      setSaveError('Дата окончания должна быть позже даты начала');
+      return;
+    }
+    setSaveError('');
     setSaving(true);
     const payload = {
       name: form.name,
@@ -1588,7 +1599,7 @@ function GroupsSection() {
     };
     adminAPI.updateGroup(selected, payload)
       .then(() => { loadGroups(); adminAPI.getGroup(selected).then(x => { setDetail(x.data); setForm({ ...x.data, instructor_id: x.data.instructor_id || '' }); setEditing(false); }); })
-      .catch(() => {})
+      .catch(e => setSaveError(e.response?.data?.detail || 'Ошибка сохранения'))
       .finally(() => setSaving(false));
   }
 
@@ -1606,10 +1617,25 @@ function GroupsSection() {
   }
 
   function handleAddSchedule() {
+    if (scheduleForm.start_time >= scheduleForm.end_time) {
+      setScheduleError('Время начала должно быть меньше времени окончания');
+      return;
+    }
+    const existing = detail?.schedule || [];
+    const hasOverlap = existing.some(s =>
+      s.weekday === scheduleForm.weekday &&
+      scheduleForm.start_time < s.end_time.slice(0, 5) &&
+      scheduleForm.end_time > s.start_time.slice(0, 5)
+    );
+    if (hasOverlap) {
+      setScheduleError('Этот слот пересекается с уже добавленным расписанием');
+      return;
+    }
+    setScheduleError('');
     setAddingSchedule(true);
     adminAPI.addSchedule(selected, scheduleForm)
       .then(() => adminAPI.getGroup(selected).then(r => { setDetail(r.data); setForm({ ...r.data, instructor_id: r.data.instructor_id || '' }); }))
-      .catch(() => {})
+      .catch(e => setScheduleError(e.response?.data?.detail || 'Ошибка добавления слота'))
       .finally(() => setAddingSchedule(false));
   }
 
@@ -1672,9 +1698,10 @@ function GroupsSection() {
           <p className={styles.emptyText}>Выберите группу</p>
         ) : (
           <>
-            <div className={styles.detailHeader} style={{ justifyContent: 'flex-end' }}>
+            <div className={styles.detailHeader} style={{ justifyContent: 'flex-end', flexWrap: 'wrap', gap: 8 }}>
+              {saveError && <p className={styles.errorText} style={{ flex: '1 1 100%', margin: 0 }}>{saveError}</p>}
               {!editing ? (
-                <button className={styles.editBtn} onClick={() => setEditing(true)}>Редактировать</button>
+                <button className={styles.editBtn} onClick={() => { setSaveError(''); setEditing(true); }}>Редактировать</button>
               ) : (
                 <button className={styles.editBtn} onClick={handleSave} disabled={saving}>{saving ? 'Сохранение...' : 'Сохранить'}</button>
               )}
@@ -1711,19 +1738,20 @@ function GroupsSection() {
                       <div className={styles.scheduleAddRow}>
                         <input type="time" className={styles.timeInput}
                           value={scheduleForm.start_time}
-                          onChange={e => setScheduleForm(f => ({ ...f, start_time: e.target.value }))} />
+                          onChange={e => { setScheduleForm(f => ({ ...f, start_time: e.target.value })); setScheduleError(''); }} />
                         <span>—</span>
                         <input type="time" className={styles.timeInput}
                           value={scheduleForm.end_time}
-                          onChange={e => setScheduleForm(f => ({ ...f, end_time: e.target.value }))} />
+                          onChange={e => { setScheduleForm(f => ({ ...f, end_time: e.target.value })); setScheduleError(''); }} />
                         <select className={styles.daySelect}
                           value={scheduleForm.weekday}
-                          onChange={e => setScheduleForm(f => ({ ...f, weekday: Number(e.target.value) }))}>
+                          onChange={e => { setScheduleForm(f => ({ ...f, weekday: Number(e.target.value) })); setScheduleError(''); }}>
                           {WEEKDAYS.map((d, i) => <option key={i+1} value={i+1}>{d}</option>)}
                         </select>
                         <button className={styles.addCircleBtn} onClick={handleAddSchedule} disabled={addingSchedule}>+</button>
                       </div>
                     )}
+                    {scheduleError && <p className={styles.errorText} style={{ marginTop: 4 }}>{scheduleError}</p>}
                     {(detail.schedule || []).map(s => (
                       <div key={s.id} className={styles.scheduleRow}>
                         <span>{s.start_time?.slice(0,5)} — {s.end_time?.slice(0,5)}</span>
@@ -1816,6 +1844,20 @@ function AddGroupModal({ onClose, onSave, instructors }) {
   const [error, setError]       = useState('');
 
   function addSch() {
+    if (schForm.start_time >= schForm.end_time) {
+      setError('Время начала должно быть меньше времени окончания');
+      return;
+    }
+    const hasOverlap = schedule.some(s =>
+      s.weekday === schForm.weekday &&
+      schForm.start_time < s.end_time &&
+      schForm.end_time > s.start_time
+    );
+    if (hasOverlap) {
+      setError('Этот слот пересекается с уже добавленным расписанием');
+      return;
+    }
+    setError('');
     setSchedule(s => [...s, { ...schForm, id: Date.now() }]);
   }
   function removeSch(id) { setSchedule(s => s.filter(x => x.id !== id)); }
@@ -1825,8 +1867,13 @@ function AddGroupModal({ onClose, onSave, instructors }) {
       setError('Заполните обязательные поля: название, дата начала');
       return;
     }
+    if (form.end_date && form.start_date >= form.end_date) {
+      setError('Дата окончания должна быть позже даты начала');
+      return;
+    }
     setSaving(true);
     setError('');
+    let gid = null;
     try {
       const payload = {
         name: form.name,
@@ -1836,13 +1883,18 @@ function AddGroupModal({ onClose, onSave, instructors }) {
         instructor_id: form.instructor_id ? Number(form.instructor_id) : null,
       };
       const res = await adminAPI.createGroup(payload);
-      const gid = res.data.id;
+      gid = res.data.id;
       for (const s of schedule) {
         await adminAPI.addSchedule(gid, { weekday: s.weekday, start_time: s.start_time, end_time: s.end_time });
       }
       onSave();
     } catch (e) {
-      setError(e.response?.data?.detail || 'Ошибка создания группы');
+      if (gid) {
+        // Группа создана, но добавление расписания не удалось — обновляем список и закрываем
+        onSave();
+      } else {
+        setError(e.response?.data?.detail || 'Ошибка создания группы');
+      }
     } finally {
       setSaving(false);
     }

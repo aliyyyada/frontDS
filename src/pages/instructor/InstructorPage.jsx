@@ -412,6 +412,36 @@ function EditSlotSheet({ slot, onClose, onSaved, onDeleted }) {
   );
 }
 /* ═══════════════════════════════════════════════════════════════════════════
+   COPY FROM PREV WEEK MODAL
+════════════════════════════════════════════════════════════════════════════ */
+function CopyFromPrevWeekModal({ onConfirm, onCancel, loading }) {
+  return (
+    <div className={s.overlay} onClick={e => e.target === e.currentTarget && onCancel()}>
+      <div className={s.sheet}>
+        <div className={s.sheetHeader}>
+          <span className={s.sheetTitle}>Перенести расписание</span>
+          <button className={s.sheetClose} onClick={onCancel}>✕</button>
+        </div>
+        <p className={s.sheetNote}>
+          Слоты с <strong>предыдущей недели</strong> будут скопированы на{' '}
+          <strong>текущую просматриваемую неделю</strong> как черновики.
+          Переносятся только дата и время — студенты не переносятся.
+        </p>
+        <p className={s.sheetNote}>
+          Если на этой неделе уже есть слот, который совпадает по времени с переносимым, такой слот будет пропущен.
+        </p>
+        <button className={s.btnBlue} onClick={onConfirm} disabled={loading}>
+          {loading ? <Sp/> : 'Перенести'}
+        </button>
+        <button className={`${s.btnOrange} ${s.btnGap}`} onClick={onCancel} disabled={loading}>
+          Отмена
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    SCHEDULE TAB
    • Прошедшие дни — слоты показываются (read-only), кнопка + скрыта,
      клик по слоту не открывает редактирование
@@ -419,15 +449,17 @@ function EditSlotSheet({ slot, onClose, onSaved, onDeleted }) {
    • Навигация: текущая и следующая неделя
 ════════════════════════════════════════════════════════════════════════════ */
 function ScheduleTab({ onEditModeChange }) {
-  const [weekOffset, setWeekOffset]   = useState(0);
-  const [selectedDay, setSelectedDay] = useState(new Date());
-  const [slots, setSlots]             = useState([]);
-  const [loading, setLoading]         = useState(true);
-  const [modal, setModal]             = useState(null);
-  const [editMode, setEditMode]       = useState(false);
-  const [notifying, setNotifying]     = useState(false);
-  const [showNotifs, setShowNotifs]   = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [weekOffset, setWeekOffset]     = useState(0);
+  const [selectedDay, setSelectedDay]   = useState(new Date());
+  const [slots, setSlots]               = useState([]);
+  const [loading, setLoading]           = useState(true);
+  const [modal, setModal]               = useState(null);
+  const [editMode, setEditMode]         = useState(false);
+  const [notifying, setNotifying]       = useState(false);
+  const [showNotifs, setShowNotifs]     = useState(false);
+  const [unreadCount, setUnreadCount]   = useState(0);
+  const [showCopyModal, setShowCopyModal] = useState(false);
+  const [copyLoading, setCopyLoading]   = useState(false);
   const today = new Date();
   const weekDates = getWeekDates(weekOffset);
 
@@ -453,6 +485,20 @@ function ScheduleTab({ onEditModeChange }) {
     try { await instructorAPI.notifyStudents(shouldNotify); }
     catch { /* некритично */ }
     finally { setNotifying(false); load(); }
+  };
+
+  const handleCopyConfirm = async () => {
+    setCopyLoading(true);
+    try {
+      await instructorAPI.copyFromPrevWeek(toISO(weekDates[0]));
+      setShowCopyModal(false);
+      load();
+    } catch(e) {
+      setShowCopyModal(false);
+      alert(parseApiError(e));
+    } finally {
+      setCopyLoading(false);
+    }
   };
 
   const load = useCallback(()=>{
@@ -604,6 +650,16 @@ function ScheduleTab({ onEditModeChange }) {
           </div>
         </div>
 
+        {editMode && (
+          <button className={s.copyLinkBtn} onClick={() => setShowCopyModal(true)}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" style={{flexShrink:0}}>
+              <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Перенести расписание с предыдущей недели
+          </button>
+        )}
+
         {/* Кнопки действий режима редактирования — вынесены в отдельную строку */}
         {editMode && (
           <div className={s.editActionBar}>
@@ -682,6 +738,13 @@ function ScheduleTab({ onEditModeChange }) {
         <NotificationsSheet
           onClose={()=>setShowNotifs(false)}
           onAllRead={()=>setUnreadCount(0)}
+        />
+      )}
+      {showCopyModal && (
+        <CopyFromPrevWeekModal
+          loading={copyLoading}
+          onConfirm={handleCopyConfirm}
+          onCancel={()=>setShowCopyModal(false)}
         />
       )}
     </>
@@ -909,7 +972,7 @@ function ProfileTab() {
                   </svg>
                 )}
               </div>
-              <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp"
+              <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
                 style={{display:'none'}} onChange={handleAvatarChange}/>
             </div>
 

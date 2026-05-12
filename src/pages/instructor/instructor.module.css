@@ -1070,6 +1070,25 @@
   margin-left: 8px;
 }
 
+.copyLinkBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: var(--font);
+  color: var(--blue);
+  padding: 0;
+  margin-bottom: 14px;
+  white-space: nowrap;
+  text-decoration: underline;
+  text-decoration-style: dashed;
+  text-underline-offset: 3px;
+}
+.copyLinkBtn:active { opacity: 0.6; }
+
 /* ═══════════════════════════════════════════════════════════════════════════
    SMALL ACTION BUTTON (используется для «Редактировать» в шапке дня)
 ═══════════════════════════════════════════════════════════════════════════ */
