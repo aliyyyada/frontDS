@@ -6,6 +6,10 @@
   padding: 0;
 }
 
+html {
+  touch-action: manipulation;
+}
+
 :root {
   --blue: #2D3CC0;
   --blue-dark: #1e2a9e;
