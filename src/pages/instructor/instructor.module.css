@@ -513,8 +513,8 @@
 }
 
 .avatar {
-  width: 96px;
-  height: 96px;
+  width: 112px;
+  height: 112px;
   border-radius: 50%;
   background: #D8DAE5;
   display: flex;
