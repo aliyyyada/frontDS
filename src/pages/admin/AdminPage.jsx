@@ -652,7 +652,12 @@ function StudentsSection() {
       type_kpp:            form.type_kpp            || '',
     };
     adminAPI.updateStudent(selected, payload)
-      .then(r => { setDetail(r.data); setForm(r.data); setEditing(false); })
+      .then(r => {
+        setDetail(r.data);
+        setForm(r.data);
+        setEditing(false);
+        setStudents(list => list.map(s => s.id === selected ? { ...s, ...r.data } : s));
+      })
       .catch(() => {})
       .finally(() => setSaving(false));
   }
@@ -1162,7 +1167,12 @@ function InstructorsSection() {
       weekly_limit: Number(form.weekly_limit) || 0,
     };
     adminAPI.updateInstructor(selected, payload)
-      .then(r => { setDetail(r.data); setForm(r.data); setEditing(false); })
+      .then(r => {
+        setDetail(r.data);
+        setForm(r.data);
+        setEditing(false);
+        setInstructors(list => list.map(i => i.id === selected ? { ...i, ...r.data } : i));
+      })
       .catch(() => {})
       .finally(() => setSaving(false));
   }
