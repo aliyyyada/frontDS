@@ -20,6 +20,25 @@ function filterRuText(val) {
   return cleaned.replace(/(^|[\s\-'])([а-яёА-ЯЁ])/g, (_, sep, ch) => sep + ch.toUpperCase());
 }
 
+const PLATE_LETTERS = 'АВЕКМНОРСТУХ';
+const PLATE_ALLOWED = new RegExp(`[^${PLATE_LETTERS}\\d]`, 'g');
+const PLATE_B = new RegExp(`^[${PLATE_LETTERS}]\\d{3}[${PLATE_LETTERS}]{2}\\d{2,3}$`);
+const PLATE_A = new RegExp(`^\\d{4}[${PLATE_LETTERS}]{2}\\d{2,3}$`);
+
+function filterCarPlate(val) {
+  return val.toUpperCase().replace(PLATE_ALLOWED, '').slice(0, 9);
+}
+
+function isValidPlate(val) {
+  if (!val) return true;
+  return PLATE_B.test(val) || PLATE_A.test(val);
+}
+
+const TODAY_ISO = (() => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+})();
+
 function abbreviateName(fullName) {
   if (!fullName) return '';
   const parts = fullName.trim().split(/\s+/);
@@ -607,6 +626,7 @@ function StudentsSection() {
   const [editing, setEditing]         = useState(false);
   const [form, setForm]               = useState({});
   const [saving, setSaving]           = useState(false);
+  const [saveError, setSaveError]     = useState('');
   const [tariffModal, setTariffModal] = useState(false);
   const [graduateModal, setGraduateModal] = useState(false);
   const [graduating, setGraduating]   = useState(false);
@@ -639,6 +659,9 @@ function StudentsSection() {
   }, [selected]);
 
   function handleSave() {
+    if (form.birth_date && form.birth_date > TODAY_ISO) return;
+    if (normalizePhone(form.phone_number || '').length !== 11) return;
+    setSaveError('');
     setSaving(true);
     const payload = {
       first_name:          form.first_name,
@@ -658,7 +681,7 @@ function StudentsSection() {
         setEditing(false);
         setStudents(list => list.map(s => s.id === selected ? { ...s, ...r.data } : s));
       })
-      .catch(() => {})
+      .catch(e => setSaveError(e.response?.data?.detail || 'Ошибка сохранения'))
       .finally(() => setSaving(false));
   }
 
@@ -749,7 +772,7 @@ function StudentsSection() {
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 {!editing ? (
-                  <button className={styles.editBtn} onClick={() => setEditing(true)}>Редактировать</button>
+                  <button className={styles.editBtn} onClick={() => { setSaveError(''); setEditing(true); }}>Редактировать</button>
                 ) : (
                   <button className={styles.editBtn} onClick={handleSave} disabled={saving}>
                     {saving ? 'Сохранение...' : 'Сохранить'}
@@ -757,6 +780,7 @@ function StudentsSection() {
                 )}
               </div>
             </div>
+            {saveError && <p className={styles.errorText} style={{ margin: '8px 0', padding: '0 2px' }}>{saveError}</p>}
 
             <div className={styles.detailForm}>
               {/* Profile: photo + name fields */}
@@ -767,21 +791,22 @@ function StudentsSection() {
                 <div className={styles.profileNameBlock}>
                   <div className={styles.twoCol}>
                     <FieldRow label="Фамилия" value={form.last_name || ''} disabled={!editing}
-                      onChange={v => setForm(f => ({ ...f, last_name: v }))} />
+                      onChange={v => setForm(f => ({ ...f, last_name: filterRuText(v) }))} />
                     <FieldRow label="Имя" value={form.first_name || ''} disabled={!editing}
-                      onChange={v => setForm(f => ({ ...f, first_name: v }))} />
+                      onChange={v => setForm(f => ({ ...f, first_name: filterRuText(v) }))} />
                   </div>
                   <FieldRow label="Отчество" value={form.patronymic || ''} disabled={!editing}
-                    onChange={v => setForm(f => ({ ...f, patronymic: v }))} />
+                    onChange={v => setForm(f => ({ ...f, patronymic: filterRuText(v) }))} />
                 </div>
               </div>
 
               {/* Contact + stats */}
               <div className={styles.twoCol}>
-                <FieldRow label="Номер телефона"
-                  value={editing ? (form.phone_number || '') : formatPhone(detail.phone_number || '')}
+                <PhoneRow label="Номер телефона"
+                  rawValue={form.phone_number || ''}
                   disabled={!editing}
-                  onChange={v => setForm(f => ({ ...f, phone_number: v }))} />
+                  onChange={v => setForm(f => ({ ...f, phone_number: v }))}
+                  error={editing && normalizePhone(form.phone_number || '').length !== 11 ? 'Введите полный номер телефона' : undefined} />
                 <FieldRow label="Часы (практика)"
                   value={`${detail.count_lessons || 0}${detail.tariff_practice_hours ? ' / ' + detail.tariff_practice_hours : ''} ч`}
                   disabled dimmed />
@@ -791,7 +816,9 @@ function StudentsSection() {
               <FieldRow label="Дата рождения" type={editing ? 'date' : 'text'}
                 value={editing ? (form.birth_date || '') : (form.birth_date ? formatDate(form.birth_date) : '—')}
                 disabled={!editing}
-                onChange={v => setForm(f => ({ ...f, birth_date: v }))} />
+                max={TODAY_ISO}
+                onChange={v => setForm(f => ({ ...f, birth_date: v }))}
+                error={editing && form.birth_date && form.birth_date > TODAY_ISO ? 'Дата рождения не может быть в будущем' : undefined} />
 
               {/* Assignment */}
               <div className={styles.twoCol}>
@@ -1127,6 +1154,7 @@ function InstructorsSection() {
   const [editing, setEditing]           = useState(false);
   const [form, setForm]                 = useState({});
   const [saving, setSaving]             = useState(false);
+  const [saveError, setSaveError]       = useState('');
   const [studentSearch, setStudentSearch]     = useState('');
   const [studentResults, setStudentResults]   = useState([]);
   const [searchingStudents, setSearchingStudents] = useState(false);
@@ -1153,6 +1181,13 @@ function InstructorsSection() {
   }, [selected]); // eslint-disable-line
 
   function handleSave() {
+    if (form.birth_date && form.birth_date > TODAY_ISO) return;
+    if (normalizePhone(form.phone_number || '').length !== 11) return;
+    if (form.car_plate && !isValidPlate(form.car_plate)) {
+      setSaveError('Гос. номер не соответствует формату: А123АА77 (кат. В) или 1234АА77 (кат. А)');
+      return;
+    }
+    setSaveError('');
     setSaving(true);
     const payload = {
       first_name:   form.first_name,
@@ -1173,7 +1208,7 @@ function InstructorsSection() {
         setEditing(false);
         setInstructors(list => list.map(i => i.id === selected ? { ...i, ...r.data } : i));
       })
-      .catch(() => {})
+      .catch(e => setSaveError(e.response?.data?.detail || 'Ошибка сохранения'))
       .finally(() => setSaving(false));
   }
 
@@ -1253,13 +1288,14 @@ function InstructorsSection() {
           <>
             <div className={styles.detailHeader} style={{ justifyContent: 'flex-end' }}>
               {!editing ? (
-                <button className={styles.editBtn} onClick={() => setEditing(true)}>Редактировать</button>
+                <button className={styles.editBtn} onClick={() => { setSaveError(''); setEditing(true); }}>Редактировать</button>
               ) : (
                 <button className={styles.editBtn} onClick={handleSave} disabled={saving}>
                   {saving ? 'Сохранение...' : 'Сохранить'}
                 </button>
               )}
             </div>
+            {saveError && <p className={styles.errorText} style={{ margin: '8px 0', padding: '0 2px' }}>{saveError}</p>}
             <div className={styles.detailForm}>
               {/* Profile: avatar + name fields */}
               <div className={styles.profileArea}>
@@ -1269,19 +1305,20 @@ function InstructorsSection() {
                 <div className={styles.profileNameBlock}>
                   <div className={styles.twoCol}>
                     <FieldRow label="Фамилия" value={form.last_name || ''} disabled={!editing}
-                      onChange={v => setForm(f => ({ ...f, last_name: v }))} />
+                      onChange={v => setForm(f => ({ ...f, last_name: filterRuText(v) }))} />
                     <FieldRow label="Имя" value={form.first_name || ''} disabled={!editing}
-                      onChange={v => setForm(f => ({ ...f, first_name: v }))} />
+                      onChange={v => setForm(f => ({ ...f, first_name: filterRuText(v) }))} />
                   </div>
                   <FieldRow label="Отчество" value={form.patronymic || ''} disabled={!editing}
-                    onChange={v => setForm(f => ({ ...f, patronymic: v }))} />
+                    onChange={v => setForm(f => ({ ...f, patronymic: filterRuText(v) }))} />
                 </div>
               </div>
               <div className={styles.twoCol}>
-                <FieldRow label="Номер телефона"
-                  value={editing ? (form.phone_number || '') : formatPhone(detail.phone_number || '')}
+                <PhoneRow label="Номер телефона"
+                  rawValue={form.phone_number || ''}
                   disabled={!editing}
-                  onChange={v => setForm(f => ({ ...f, phone_number: v }))} />
+                  onChange={v => setForm(f => ({ ...f, phone_number: v }))}
+                  error={editing && normalizePhone(form.phone_number || '').length !== 11 ? 'Введите полный номер телефона' : undefined} />
                 <FieldRow label="Лимит (нед.)" value={String(form.weekly_limit ?? 3)} disabled={!editing}
                   onChange={v => setForm(f => ({ ...f, weekly_limit: v }))} />
               </div>
@@ -1289,18 +1326,21 @@ function InstructorsSection() {
                 <FieldRow label="Дата рождения" type={editing ? 'date' : 'text'}
                   value={editing ? (form.birth_date || '') : (form.birth_date ? formatDate(form.birth_date) : '—')}
                   disabled={!editing}
-                  onChange={v => setForm(f => ({ ...f, birth_date: v }))} />
+                  max={TODAY_ISO}
+                  onChange={v => setForm(f => ({ ...f, birth_date: v }))}
+                  error={editing && form.birth_date && form.birth_date > TODAY_ISO ? 'Дата рождения не может быть в будущем' : undefined} />
                 <div />
               </div>
               <div className={styles.twoCol}>
                 <FieldRow label="Марка автомобиля" value={form.car_brand || ''} disabled={!editing}
                   onChange={v => setForm(f => ({ ...f, car_brand: v }))} />
                 <FieldRow label="Цвет" value={form.car_color || ''} disabled={!editing}
-                  onChange={v => setForm(f => ({ ...f, car_color: v }))} />
+                  onChange={v => setForm(f => ({ ...f, car_color: filterRuText(v) }))} />
               </div>
               <div className={styles.twoCol}>
                 <FieldRow label="Гос. номер" value={form.car_plate || ''} disabled={!editing}
-                  onChange={v => setForm(f => ({ ...f, car_plate: v }))} />
+                  onChange={v => setForm(f => ({ ...f, car_plate: filterCarPlate(v) }))}
+                  error={editing && form.car_plate && !isValidPlate(form.car_plate) ? 'Формат: А123АА77 (кат. В) или 1234АА77 (кат. А)' : undefined} />
                 <div className={styles.fieldGroup}>
                   <label className={styles.fieldLabel}>КПП</label>
                   <div className={styles.kppToggle}>
@@ -2470,7 +2510,50 @@ function InvoicesTab() {
 // ══════════════════════════════════════════════════════════════════════════════
 // SHARED COMPONENTS
 // ══════════════════════════════════════════════════════════════════════════════
-function FieldRow({ label, value, onChange, disabled = false, type = 'text', dimmed = false, inputMode, placeholder, min, step, error }) {
+function PhoneRow({ label, rawValue, disabled, onChange, error }) {
+  const [display, setDisplay] = useState('');
+
+  useEffect(() => {
+    setDisplay(rawValue ? fmtPhoneUtil(normalizePhone(rawValue)) : '');
+  }, [rawValue, disabled]); // eslint-disable-line
+
+  if (disabled) {
+    return <FieldRow label={label} value={formatPhone(rawValue || '')} disabled />;
+  }
+
+  function handleKeyDown(e) {
+    if (e.key === 'Backspace') {
+      e.preventDefault();
+      const digits = normalizePhone(rawValue || '');
+      const trimmed = digits.slice(0, -1);
+      setDisplay(trimmed ? fmtPhoneUtil(trimmed) : '');
+      onChange(trimmed);
+    }
+  }
+
+  function handleChange(e) {
+    const digits = e.target.value.replace(/\D/g, '').slice(0, 11);
+    const normalized = normalizePhone(digits);
+    setDisplay(normalized ? fmtPhoneUtil(normalized) : '');
+    onChange(normalized);
+  }
+
+  return (
+    <div className={styles.fieldGroup}>
+      <label className={styles.fieldLabel}>{label}</label>
+      <input
+        className={`${styles.fieldInput} ${error ? styles.fieldInputError : ''}`}
+        type="tel"
+        value={display}
+        onKeyDown={handleKeyDown}
+        onChange={handleChange}
+      />
+      {error && <span className={styles.fieldErrText}>{error}</span>}
+    </div>
+  );
+}
+
+function FieldRow({ label, value, onChange, disabled = false, type = 'text', dimmed = false, inputMode, placeholder, min, max, step, error }) {
   return (
     <div className={styles.fieldGroup}>
       <label className={`${styles.fieldLabel} ${dimmed ? styles.fieldLabelDisabled : ''}`}>{label}</label>
@@ -2484,6 +2567,7 @@ function FieldRow({ label, value, onChange, disabled = false, type = 'text', dim
         inputMode={inputMode}
         placeholder={placeholder}
         min={min}
+        max={max}
         step={step}
       />
       {error && <span className={styles.fieldErrText}>{error}</span>}
