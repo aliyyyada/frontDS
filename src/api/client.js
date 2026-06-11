@@ -1,0 +1,176 @@
+import axios from 'axios';
+const API_BASE = process.env.REACT_APP_API_URL || 'http://192.168.31.119/api/admin';
+
+const MEDIA_ORIGIN = API_BASE.split('/api')[0];
+
+export function getMediaUrl(path) {
+  if (!path) return null;
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  const stripped = path.replace(/^\/+/, '');
+  
+  if (stripped.startsWith('media/')) return `${MEDIA_ORIGIN}/${stripped}`;
+  return `${MEDIA_ORIGIN}/media/${stripped}`;
+}
+
+const client = axios.create({
+  baseURL: API_BASE,
+  headers: {
+    'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true',
+  },
+});
+
+client.interceptors.request.use((config) => {
+  const token = localStorage.getItem('access_token');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+let refreshPromise = null;
+
+client.interceptors.response.use(
+  (res) => res,
+  async (error) => {
+    const original = error.config;
+    const refresh = localStorage.getItem('refresh_token');
+    const isLoginEndpoint = original.url?.includes('/auth/login/');
+    if (error.response?.status === 401 && !original._retry && !isLoginEndpoint && refresh) {
+      original._retry = true;
+      try {
+        if (!refreshPromise) {
+          refreshPromise = axios
+            .post(`${API_BASE}/auth/token/refresh/`, { refresh })
+            .then(({ data }) => {
+              localStorage.setItem('access_token', data.access);
+              if (data.refresh) localStorage.setItem('refresh_token', data.refresh);
+              return data.access;
+            })
+            .finally(() => { refreshPromise = null; });
+        }
+        const newToken = await refreshPromise;
+        original.headers.Authorization = `Bearer ${newToken}`;
+        return client(original);
+      } catch (refreshErr) {
+        
+        if (refreshErr?.response) {
+          localStorage.clear();
+          window.location.href = '/login';
+        }
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
+export default client;
+
+export const pushAPI = {
+  subscribe:      (data)     => client.post('/push/subscribe/', data),
+  unsubscribe:    (endpoint) => client.delete('/push/subscribe/', { data: { endpoint } }),
+  getVapidKey:    ()         => client.get('/push/vapid-public-key/'),
+};
+
+export const authAPI = {
+  login:           (phone_number, password) =>
+    client.post('/auth/login/', { phone_number, password }),
+  registerInstructor: (data) =>
+    client.post('/auth/register/', data),
+  sendOTP:         (phone_number) =>
+    client.post('/auth/send-otp/', { phone_number }),
+  verifyOTP:       (phone_number, code) =>
+    client.post('/auth/verify/', { phone_number, code }),
+  forgotPassword:  (phone_number) =>
+    client.post('/auth/forgot-password/', { phone_number }),
+  resetPassword:   (phone_number, code, new_password) =>
+    client.post('/auth/reset-password/', { phone_number, code, new_password }),
+};
+
+export const instructorAPI = {
+  
+  getProfile:    ()     => client.get('/instructor/profile/'),
+  updateProfile: (data) => client.patch('/instructor/profile/', data),
+  updateCar:     (data) => client.patch('/instructor/car/', data),
+  updateLimit:   (data) => client.patch('/instructor/limit/', data),
+  uploadAvatar: (formData) => client.patch('/instructor/avatar/', formData, {headers: { 'Content-Type': 'multipart/form-data' }}),
+
+  getSlots:      (params) => client.get('/instructor/slots/', { params }),
+  createSlot:    (data)   => client.post('/instructor/slots/', data),
+  getSlot:       (id)     => client.get(`/instructor/slots/${id}/`),
+  updateSlot:    (id, data) => client.patch(`/instructor/slots/${id}/`, data),
+  deleteSlot:    (id)     => client.delete(`/instructor/slots/${id}/`),
+
+  getStudents:   ()       => client.get('/instructor/students/'),
+  
+  getUpcoming:   (params) => client.get('/instructor/upcoming/', { params }),
+
+  getNotifications: ()   => client.get('/instructor/notifications/'),
+  markRead:      (id)    => client.patch(`/instructor/notifications/${id}/read/`),
+
+  notifyStudents: (notify = true) => client.post('/instructor/slots/notify/', { notify }),
+
+  copyFromPrevWeek: (week) => client.post('/instructor/slots/copy-from-prev-week/', { week }),
+
+};
+
+export const adminAPI = {
+  
+  getTheoryLessons: (date) => client.get('/dashboard/theory/', { params: { date } }),
+  getLeads:         (tab)  => client.get('/dashboard/leads/', { params: { tab } }),
+  updateLead:       (id, data) => client.patch(`/dashboard/leads/${id}/`, data),
+  deleteLead:       (id)  => client.delete(`/dashboard/leads/${id}/`),
+
+  getStudents:        (search) => client.get('/students/', { params: search ? { search } : {} }),
+  getStudent:         (id)     => client.get(`/students/${id}/`),
+  updateStudent:      (id, data) => client.patch(`/students/${id}/`, data),
+  graduateStudent:    (id)     => client.post(`/students/${id}/graduate/`),
+  freezeStudent:      (id)     => client.post(`/students/${id}/freeze/`),
+  unfreezeStudent:    (id)     => client.post(`/students/${id}/unfreeze/`),
+  getGraduatedStudents: (search) => client.get('/graduated-students/', { params: search ? { search } : {} }),
+  getFrozenStudents:  (search) => client.get('/frozen-students/', { params: search ? { search } : {} }),
+  deleteStudent:      (id)     => client.delete(`/students/${id}/delete/`),
+
+  getInstructors: (search) => client.get('/instructors/', { params: search ? { search } : {} }),
+  getInstructor:  (id)     => client.get(`/instructors/${id}/`),
+  updateInstructor: (id, data) => client.patch(`/instructors/${id}/`, data),
+  deleteInstructor: (id)   => client.delete(`/instructors/${id}/`),
+  addStudentToInstructor:    (iid, studentId) => client.post(`/instructors/${iid}/students/`, { student_id: studentId }),
+  removeStudentFromInstructor: (iid, sid)     => client.delete(`/instructors/${iid}/students/${sid}/`),
+
+  getAdmins:    ()     => client.get('/admins/'),
+  getMyProfile: ()     => client.get('/auth/me/'),
+  deleteAdmin:  (id)   => client.delete(`/admins/${id}/`),
+  createAdmin:  (data) => client.post('/auth/create-admin/', data),
+
+  getGroups:      ()          => client.get('/groups/'),
+  getGroup:       (id)        => client.get(`/groups/${id}/`),
+  createGroup:    (data)      => client.post('/groups/', data),
+  updateGroup:    (id, data)  => client.patch(`/groups/${id}/`, data),
+  deleteGroup:    (id)        => client.delete(`/groups/${id}/`),
+  addSchedule:       (gid, data) => client.post(`/groups/${gid}/schedule/`, data),
+  deleteSchedule:    (gid, sid)  => client.delete(`/groups/${gid}/schedule/${sid}/`),
+  addStudentToGroup: (gid, studentId) => client.post(`/groups/${gid}/students/`, { student_id: studentId }),
+  removeStudentFromGroup: (gid, sid)  => client.delete(`/groups/${gid}/students/${sid}/`),
+
+  getCars:   ()          => client.get('/cars/'),
+  updateCar: (id, data)  => client.patch(`/cars/${id}/`, data),
+
+  getTariffs:    ()          => client.get('/tariffs/'),
+  getTariff:     (id)        => client.get(`/tariffs/${id}/`),
+  createTariff:  (data)      => client.post('/tariffs/', data),
+  updateTariff:  (id, data)  => client.patch(`/tariffs/${id}/`, data),
+  deleteTariff:  (id)        => client.delete(`/tariffs/${id}/`),
+
+  getReferralStudents: (search) => client.get('/referral/students/', { params: search ? { search } : {} }),
+  getReferrals:        (sid)    => client.get(`/referral/students/${sid}/referrals/`),
+  payBonus:            (rid)    => client.patch(`/referral/referrals/${rid}/pay-bonus/`),
+
+  getInvoiceStudents: (search) => client.get('/invoices/students/', { params: search ? { search } : {} }),
+  getStudentInvoices: (sid)    => client.get(`/invoices/students/${sid}/`),
+  createInvoice:      (sid, data) => client.post(`/invoices/students/${sid}/`, data),
+  updateInvoice:      (id, status) => client.patch(`/invoices/${id}/`, { status }),
+  deleteInvoice:      (id)    => client.delete(`/invoices/${id}/`),
+
+  getAdminNotifications: () => client.get('/notifications/'),
+  markAdminNotificationRead: (id) => client.patch(`/notifications/${id}/read/`),
+  markAllAdminNotificationsRead: () => client.post('/notifications/read-all/'),
+};
