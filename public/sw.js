@@ -18,7 +18,7 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Только GET-запросы, не API
+
   if (event.request.method !== 'GET') return;
   if (event.request.url.includes('/api/')) return;
 
@@ -33,7 +33,7 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// ── Push-уведомления ─────────────────────────────────────────────────────────
+
 
 self.addEventListener('push', (event) => {
   let title = 'Экипаж';
@@ -57,7 +57,7 @@ self.addEventListener('push', (event) => {
   );
 });
 
-// Клик по уведомлению — открыть/сфокусировать вкладку приложения
+
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 

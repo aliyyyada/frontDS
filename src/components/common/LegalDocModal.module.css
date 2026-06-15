@@ -212,3 +212,38 @@
 .docList li {
   margin-bottom: 4px;
 }
+
+
+.schoolInfoTable {
+  display: flex;
+  flex-direction: column;
+}
+
+.schoolInfoRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 11px 0;
+  border-bottom: 1px solid #f0f0f0;
+  gap: 12px;
+}
+
+.schoolInfoRow:last-child {
+  border-bottom: none;
+}
+
+.schoolInfoLabel {
+  font-size: 12px;
+  color: #888;
+  flex-shrink: 0;
+  width: 128px;
+  line-height: 1.45;
+}
+
+.schoolInfoValue {
+  font-size: 13px;
+  color: #1a1a1a;
+  text-align: right;
+  line-height: 1.45;
+  font-weight: 500;
+}

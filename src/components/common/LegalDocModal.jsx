@@ -226,6 +226,30 @@ const TERMS_CONTENT = (
   </div>
 );
 
+const SCHOOL_CONTENT = (
+  <div className={styles.docContent}>
+    <div className={styles.schoolInfoTable}>
+      {[
+        ['Полное наименование', 'Частное образовательное учреждение дополнительного профессионального образования Автошкола «Экипаж»'],
+        ['Сокращённое', 'ЧОУ ДПО Автошкола «Экипаж»'],
+        ['ОГРН', '1027402911470'],
+        ['Юридический адрес', '454080, г. Челябинск, ул. Энтузиастов, 12, оф. 302'],
+        ['Учебный класс', 'г. Челябинск, ул. Энтузиастов, 12, офис 302'],
+        ['Автодром', 'г. Челябинск, ул. Троицкая, 1Г'],
+        ['Телефон', '8 (351) 278-28-28'],
+        ['Эл. почта', 'ekipage_74@mail.ru'],
+        ['Сайт', 'www.ekipage74.ru'],
+        ['Режим работы', 'Пн–Пт, 10:00–17:00; Сб–Вс — выходной'],
+      ].map(([label, value]) => (
+        <div key={label} className={styles.schoolInfoRow}>
+          <span className={styles.schoolInfoLabel}>{label}</span>
+          <span className={styles.schoolInfoValue}>{value}</span>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
 const DOC_CONFIG = {
   privacy: {
     title: 'Политика обработки и защиты персональных данных',
@@ -234,6 +258,10 @@ const DOC_CONFIG = {
   terms: {
     title: 'Пользовательское соглашение',
     content: TERMS_CONTENT,
+  },
+  school: {
+    title: 'Сведения об автошколе',
+    content: SCHOOL_CONTENT,
   },
 };
 

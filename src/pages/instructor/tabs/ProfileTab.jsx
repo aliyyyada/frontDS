@@ -234,6 +234,11 @@ export function ProfileTab() {
 
             <div className={s.profileBottom}>
               <div className={s.legalDocs}>
+                <button className={s.legalDocLink} onClick={() => setLegalDoc('school')}>
+                  Об автошколе
+                </button>
+              </div>
+              <div className={s.legalDocs} style={{ marginTop: 8 }}>
                 <button className={s.legalDocLink} onClick={() => setLegalDoc('privacy')}>
                   Политика обработки персональных данных
                 </button>

@@ -15,6 +15,7 @@ function validateTariff(f) {
   if (!f.total_price || isNaN(tp) || tp <= 0) e.total_price = 'Введите сумму';
   const thp = Number(String(f.theory_price).replace(/\s/g, '').replace(',', '.'));
   if (!f.theory_price || isNaN(thp) || thp <= 0) e.theory_price = 'Введите сумму';
+  if (!e.total_price && !e.theory_price && tp < thp) e.total_price = 'Общая стоимость не может быть меньше стоимости теории';
   return e;
 }
 

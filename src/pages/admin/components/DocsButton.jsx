@@ -27,6 +27,9 @@ export function DocsButton({ onOpen }) {
             <span className={styles.notifTitle}>Правовые документы</span>
           </div>
           <div className={styles.notifList}>
+            <button className={styles.docMenuItem} onClick={() => pick('school')}>
+              Сведения об автошколе
+            </button>
             <button className={styles.docMenuItem} onClick={() => pick('privacy')}>
               Политика обработки персональных данных
             </button>
