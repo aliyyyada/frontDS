@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { instructorAPI } from '../../../api/client';
 import { toISO, fmtRU, getWeekDates } from '../../../utils/date';
 import { parseApiError } from '../../../utils/validators';
@@ -60,7 +60,7 @@ function fmtNotifTime(iso) {
 function NotificationsSheet({ onClose, onAllRead }) {
   const [items,   setItems]   = useState([]);
   const [loading, setLoading] = useState(true);
-  const pendingReadIds = { current: new Set() };
+  const pendingReadIds = useRef(new Set());
 
   useEffect(() => {
     instructorAPI.getNotifications()
